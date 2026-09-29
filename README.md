@@ -33,10 +33,35 @@ cp .env.example .env.local
 
 ```bash
 npm install
-npm run dev      # http://localhost:3000
+npm run dev        # http://localhost:3000 (.env.local 또는 .dev.vars 사용)
+npm run preview    # Cloudflare Workers 런타임으로 로컬 실행 (.dev.vars 필요)
 ```
 
-Vercel 에 올릴 때는 위 세 변수를 프로젝트 환경변수로 넣는다. 접근 암호는 브라우저 localStorage 에만 저장된다.
+## Cloudflare Workers 배포
+
+[OpenNext Cloudflare 어댑터](https://opennext.js.org/cloudflare)로 Workers 에 올린다. 설정은 `wrangler.jsonc`·`open-next.config.ts` 에 있다.
+
+Workers Builds(Git 연결) 빌드 구성:
+
+| 항목 | 값 |
+| --- | --- |
+| 빌드 명령 | `npx opennextjs-cloudflare build` |
+| 배포 명령 | `npx opennextjs-cloudflare deploy` |
+| 버전 명령 | `npx wrangler versions upload` |
+| 루트 디렉터리 | `/` |
+
+Worker 이름은 `wrangler.jsonc` 의 `name`(`x-post`)과 대시보드의 Worker 이름이 같아야 한다.
+
+환경변수는 대시보드 **설정 → 변수 및 비밀**에 **비밀(Secret)** 로 넣는다. 빌드 때는 필요 없고 실행 때만 읽는다.
+
+```bash
+# CLI 로 넣을 때
+npx wrangler secret put X_QUEUE_SUPABASE_URL
+npx wrangler secret put X_QUEUE_SUPABASE_SERVICE_ROLE_KEY
+npx wrangler secret put X_POST_ACCESS_TOKEN
+```
+
+로컬 `npm run preview` 는 `.dev.vars` 를 읽는다(`.dev.vars.example` 참고, Git 에서 제외됨).
 
 ## 상태
 
