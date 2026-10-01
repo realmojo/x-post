@@ -28,6 +28,7 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
 }
 .wrap { max-width: 720px; margin: 0 auto; padding: 32px 16px 64px; }
+.login-wrap { max-width: 420px; padding-top: min(20vh, 160px); }
 h1 { margin: 0 0 4px; font-size: 24px; }
 h2 { margin: 0; font-size: 16px; }
 .lead, .muted { color: var(--muted); }

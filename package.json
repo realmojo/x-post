@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "test": "node --test tests/auth.test.mjs",
+    "test:auth-http": "node tests/auth-http.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

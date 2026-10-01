@@ -1,5 +1,6 @@
-import { createHash, timingSafeEqual } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
+import { isSameOrigin, sameToken, SESSION_COOKIE, verifySession } from "../../lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -15,27 +16,24 @@ function config() {
   return { url, key, token };
 }
 
-// 길이가 달라도 비교 시간이 같도록 해시끼리 비교한다.
-function sameToken(given: string, expected: string) {
-  const a = createHash("sha256").update(given).digest();
-  const b = createHash("sha256").update(expected).digest();
-  return timingSafeEqual(a, b);
-}
-
 function json(body: unknown, status = 200) {
   return Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
 }
 
-function open(request: Request) {
-  const { url, key, token } = config();
+async function open(request: Request) {
   const given = request.headers.get("x-access-token") ?? "";
-  if (!given || !sameToken(given, token)) return null;
+  const token = process.env.X_POST_ACCESS_TOKEN;
+  const apiAccess = !!given && !!token && sameToken(given, token);
+  const sessionAccess = verifySession((await cookies()).get(SESSION_COOKIE)?.value);
+  if (!apiAccess && !sessionAccess) return null;
+  if (!apiAccess && request.method !== "GET" && !isSameOrigin(request)) return null;
+  const { url, key } = config();
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
 export async function GET(request: Request) {
   try {
-    const db = open(request);
+    const db = await open(request);
     if (!db) return json({ error: "접근 암호가 맞지 않습니다." }, 401);
     const { data, error } = await db
       .from("x_post_queue")
@@ -51,7 +49,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const db = open(request);
+    const db = await open(request);
     if (!db) return json({ error: "접근 암호가 맞지 않습니다." }, 401);
 
     const body = await request.json().catch(() => null);

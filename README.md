@@ -8,8 +8,12 @@ X 에 실제로 올리는 일은 이 저장소가 하지 않는다. 로컬 Mac �
 
 | 경로 | 역할 |
 | --- | --- |
-| `app/page.tsx` | URL 입력 폼 + 최근 등록 30건과 상태 |
-| `app/api/queue/route.ts` | `GET` 목록 조회, `POST` URL 저장. 접근 암호(`x-access-token` 헤더)가 맞아야 동작 |
+| `app/page.tsx` | 서버에서 로그인 확인 후 대기열 화면 표시. 미인증 시 `/login`으로 이동 |
+| `app/login/` | 비밀번호 로그인 화면 |
+| `app/queue.tsx` | URL 입력 폼 + 최근 등록 30건과 상태, 로그아웃 |
+| `app/api/auth/` | 로그인·로그아웃, 7일간 유효한 HttpOnly 세션 쿠키 |
+| `app/lib/auth.ts` | 서명된 세션 검증, 비밀번호 비교, 동일 출처 검사 |
+| `app/api/queue/route.ts` | `GET` 목록 조회, `POST` URL 저장. 로그인 쿠키 또는 기존 `x-access-token` 헤더 필요 |
 | `supabase/queue.sql` | 테이블·정규화 트리거·작업자용 함수. 처음 한 번 적용 |
 
 URL 검사와 정규화는 DB 트리거가 한다. 블라인드 `/kr/post/…`, 오늘의유머 `view.php?table=…&no=…` 만 받고,
@@ -25,7 +29,14 @@ cp .env.example .env.local
 | --- | --- |
 | `X_QUEUE_SUPABASE_URL` | `https://프로젝트ID.supabase.co` |
 | `X_QUEUE_SUPABASE_SERVICE_ROLE_KEY` | 서버 전용 키. 테이블이 RLS 로 막혀 있어 이 키로만 읽고 쓴다 |
-| `X_POST_ACCESS_TOKEN` | 폼에서 입력하는 접근 암호. 이게 없으면 누구나 대기열에 넣을 수 있으니 길게 정한다 |
+| `X_POST_ACCESS_TOKEN` | 기존 API 호출용 접근 토큰 및 세션 서명 키. 길고 추측하기 어려운 값으로 정한다 |
+| `X_POST_PASSWORD` | 화면 로그인 비밀번호. Cloudflare Secret으로 저장한다 |
+
+메인 화면과 대기열 API는 서버에서 인증을 확인한다. 비밀번호를 브라우저 저장소에 저장하지 않으며,
+로그인 쿠키는 HTTPS에서 `Secure`, `HttpOnly`, `SameSite=Strict`로 설정된다.
+비밀번호나 API 토큰을 변경하면 기존 로그인도 만료된다. 로그아웃은 브라우저의 쿠키를 지운다.
+로그인 요청은 `LOGIN_RATE_LIMITER` 바인딩으로 IP별 1분당 5회로 제한한다(Cloudflare 위치별 적용).
+브라우저의 저장·로그아웃 요청은 동일 출처인지 검사하며 기존 API 토큰 호출은 계속 지원한다.
 
 테이블이 아직 없다면 Supabase SQL Editor 에서 `supabase/queue.sql` 을 실행한다.
 
@@ -59,9 +70,11 @@ Worker 이름은 `wrangler.jsonc` 의 `name`(`x-post`)과 대시보드의 Worker
 npx wrangler secret put X_QUEUE_SUPABASE_URL
 npx wrangler secret put X_QUEUE_SUPABASE_SERVICE_ROLE_KEY
 npx wrangler secret put X_POST_ACCESS_TOKEN
+npx wrangler secret put X_POST_PASSWORD
 ```
 
 로컬 `npm run preview` 는 `.dev.vars` 를 읽는다(`.dev.vars.example` 참고, Git 에서 제외됨).
+`wrangler.jsonc`의 `keep_vars: true`는 대시보드에서 설정한 기존 환경변수를 배포 시 보존한다.
 
 ## 상태
 
